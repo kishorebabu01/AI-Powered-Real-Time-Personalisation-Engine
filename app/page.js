@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import posthog from "posthog-js";
 
 export default function Home() {
   const [copy, setCopy] = useState({
@@ -10,26 +11,36 @@ export default function Home() {
   });
   const [loading, setLoading] = useState(true);
   const [clicked, setClicked] = useState(false);
+  const [source, setSource] = useState("organic");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const source = params.get("utm_source") || "organic";
+    const utmSource = params.get("utm_source") || "organic";
+    setSource(utmSource);
 
     fetch("/api/personalise", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source }),
+      body: JSON.stringify({ source: utmSource }),
     })
       .then((res) => res.json())
       .then((data) => {
         setCopy(data);
         setLoading(false);
+        posthog.capture("page_viewed", {
+          utm_source: utmSource,
+          headline: data.headline,
+        });
       })
       .catch(() => setLoading(false));
   }, []);
 
   const handleCTAClick = () => {
     setClicked(true);
+    posthog.capture("cta_clicked", {
+      utm_source: source,
+      cta_text: copy.cta,
+    });
   };
 
   return (
